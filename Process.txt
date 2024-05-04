@@ -1,0 +1,23 @@
+#Streaming
+
+-> Server: To send video
+-> Client: To receive it
+
+#Features
+-> Adjusting quality based on connection
+-> Adjusting the timestamp and video and audio packets
+-> Supporting multiple users requesting various videos
+
+###################
+# Baby steps
+
+QUESTION 1: What type of server?
+
+=> A lot of options tbh
+
+QUESTION 2: What are we communicating over?
+
+=> Can communicate over internet. Or over home wifi. Or LAN or USB-C
+    And this will affect the bandwidth (so in turn affect the type and amount of data we can send)
+
+QUESTION 3: How do you create packets? I know you create them because I know that's how you transfer information
