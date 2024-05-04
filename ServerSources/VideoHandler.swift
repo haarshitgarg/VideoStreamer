@@ -10,6 +10,10 @@ final class VideoHandler: ChannelInboundHandler {
         context.write(data, promise:nil)
     }
 
+    public func channelReadComplete(context: ChannelHandlerContext) {
+        context.flush()
+    }
+
     public func errorCaught(context: ChannelHandlerContext, error: any Error) {
 
     }

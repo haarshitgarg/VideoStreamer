@@ -23,6 +23,9 @@ let package = Package(
         .executableTarget(
             name: "VideoClient",
             dependencies: [
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "NIOPosix", package: "swift-nio"),
+                .product(name: "NIOHTTP1", package: "swift-nio")
             ],
             path: "ClientSources"
         ),
