@@ -10,13 +10,23 @@ enum VideoError: Error {
 class Server {
     let ServerName: String = "VideoServer"
     let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
-    let bootstrap: ServerBootstrap
+    let UDPbootstrap: DatagramBootstrap
+    let TCPbootstrap: ServerBootstrap
     
     var host: String = "127.0.0.1"
-    var port: Int = 8080
+    var UDPport: Int = 8080
+    var TCPport: Int = 6969
 
     init() {
-        bootstrap = ServerBootstrap(group: self.group)
+        UDPbootstrap = DatagramBootstrap(group: self.group)
+            .channelOption(ChannelOptions.datagramVectorReadMessageCount, value: 2)
+            .channelOption(ChannelOptions.recvAllocator, value: FixedSizeRecvByteBufferAllocator(capacity: 128))
+            .channelInitializer { channel in
+                channel.eventLoop.makeCompletedFuture {
+                    try channel.pipeline.syncOperations.addHandler(VideoHandler())
+                }
+            }
+        TCPbootstrap = ServerBootstrap(group: self.group)
             .childChannelInitializer { channel in
                 channel.eventLoop.makeCompletedFuture {
                     try channel.pipeline.syncOperations.addHandler(VideoHandler())
@@ -24,30 +34,49 @@ class Server {
             }
     }
 
+
     public func run(arguments: [String]) throws {
         try parseArguments(arguments)
+
+        let UDPchannel = try UDPbootstrap.bind(host: host, port: self.UDPport).wait()
+        let TCPchannel = try TCPbootstrap.bind(host: host, port: self.TCPport).wait()
+
+        try UDPchannel.closeFuture.wait()
+        try TCPchannel.closeFuture.wait()
     }
 
     private func parseArguments(_ arguments: [String]) throws {
+        if arguments.count <= 2 {
+            print("Setting up default server")
+            self.PrintDetails()
+            return
+        }
         guard arguments.count == 3 else {
             throw VideoError.InvalidArguments
         }
         self.host = arguments[1]
         guard let port = Int(arguments[2]) else { throw VideoError.PortInvalid }
-        self.port = port
+        self.UDPport = port
 
-        let channel = try bootstrap.bind(host: host, port: self.port).wait()
-        print("Server started and listening on \(channel.localAddress!)")
+        self.PrintDetails()
+    }
 
-        try channel.closeFuture.wait()
+    private func runUPD() async throws {
+
+        // Wait for the channel to close
+        print("Channel closed. exiting..")
     }
 
 }
 
 extension Server {
-    func PrintDetails() {
+    private func PrintDetails() {
+        print("-----------------------------------------------")
         print("Server name is: \(self.ServerName)")
-        print("No of cores in your system: \(System.coreCount)")
+        print("Server IP: \(self.host)")
+        print("Server TCP port: \(self.TCPport)")
+        print("Server UDP port: \(self.UDPport)")
+        print("-----------------------------------------------")
     }
 }
 
@@ -56,7 +85,6 @@ struct main {
     static let server: Server = Server.init()
 
     static func main() throws {
-        server.PrintDetails()
         do {
             try server.run(arguments: CommandLine.arguments)
         }
