@@ -12,7 +12,7 @@ enum ClientError: Error {
 
 struct Client {
     var group: MultiThreadedEventLoopGroup
-    var bootstrap: DatagramBootstrap
+    var bootstrap: ClientBootstrap
 
     var remoteAddress: SocketAddress
     var host: String
@@ -30,24 +30,23 @@ struct Client {
         self.remoteAddress = y
 
         group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        bootstrap = DatagramBootstrap(group: group)
+        bootstrap = ClientBootstrap(group: group)
             .channelInitializer { channel in
                 channel.pipeline.addHandler(ClientVideoHandler(remoteAddress: y))
             }
         PrintClientDetails()
-        try run()
     }
 
-    func run() throws {
+    // I am trying to run n number of clients so I have kept it asynchronus.
+    // But if you are trying to just launch one client: from client perspective it should be synchronus
+    // As nothing  else can be done without achieving a TCP connection to the server
+    // Right now I hope this can be handled by my VideoHandlers
+    func run() async throws {
 
+        //let channel = try await self.bootstrap.bind(host: host, port: listeningPort).get()
+        let channel = try await self.bootstrap.connect(to: SocketAddress.makeAddressResolvingHost(host, port: serverPort)).get()
 
-        let channel = try self.bootstrap.bind(host: host, port: listeningPort).wait()
-        // try channel.connect(to: SocketAddress.makeAddressResolvingHost(host, port: serverPort)).wait()
-
-        Task {
-            try await channel.closeFuture.get()
-            print("Channel is closed for client: \(self.clientName)")
-        }
+        try await channel.closeFuture.get()
     }
 }
 
@@ -84,6 +83,9 @@ struct main: ParsableCommand {
             let clName: String = "Client \(i)"
             lPort += Int(i)
             let cl: Client = try Client.init(clientName: clName, host: self.host, serverPort: self.sPort, listeningPort: lPort)
+            Task {
+                try await cl.run()
+            }
             clients.append(cl)
         }
 

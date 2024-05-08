@@ -5,8 +5,8 @@ enum HandlerError: Error {
     case NilError
 }
 class ClientVideoHandler: ChannelInboundHandler {
-    typealias InboundIn = AddressedEnvelope<ByteBuffer>
-    typealias OutboundOut = AddressedEnvelope<ByteBuffer>
+    typealias InboundIn = ByteBuffer
+    typealias OutboundOut = ByteBuffer
     let bufferSize: Int = 2000
     var remoteAddress: SocketAddress
 
@@ -16,18 +16,17 @@ class ClientVideoHandler: ChannelInboundHandler {
     public func channelActive(context: ChannelHandlerContext) {
 
         var buffer = context.channel.allocator.buffer(capacity: bufferSize)
+
         buffer.writeInteger(message.count)
         buffer.writeBytes(message)
 
-        let envelope = AddressedEnvelope<ByteBuffer>(remoteAddress: remoteAddress, data: buffer)
-        context.writeAndFlush(self.wrapOutboundOut(envelope), promise: nil)
+        context.writeAndFlush(self.wrapOutboundOut(buffer), promise: nil)
 
     }
 
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         print("In the channel read")
-        let envelope = self.unwrapInboundIn(data)
-        let buffer = envelope.data
+        let buffer = self.unwrapInboundIn(data)
 
         //print(buffer.readableBytes)
         //print(buffer)
