@@ -14,39 +14,52 @@ struct Client {
     var group: MultiThreadedEventLoopGroup
     var bootstrap: ClientBootstrap
 
-    var remoteAddress: SocketAddress
     var host: String
     var listeningPort: Int
     var serverPort: Int
-    let clientName: String
+    let clientId: UInt8
 
-    init(clientName: String, host: String, serverPort: Int, listeningPort: Int) throws {
+    init(clientId: UInt8, host: String, serverPort: Int, listeningPort: Int) throws {
         self.host = host
         self.serverPort = serverPort
         self.listeningPort = listeningPort
-        self.clientName = clientName
-
-        let y = try SocketAddress.makeAddressResolvingHost(host, port: serverPort) 
-        self.remoteAddress = y
+        self.clientId = clientId
 
         group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        bootstrap = ClientBootstrap(group: group)
-            .channelInitializer { channel in
-                channel.pipeline.addHandler(ClientVideoHandler(remoteAddress: y))
-            }
+        self.bootstrap = ClientBootstrap(group: group)
         PrintClientDetails()
     }
 
-    // I am trying to run n number of clients so I have kept it asynchronus.
     // But if you are trying to just launch one client: from client perspective it should be synchronus
     // As nothing  else can be done without achieving a TCP connection to the server
     // Right now I hope this can be handled by my VideoHandlers
     func run() async throws {
-
-        //let channel = try await self.bootstrap.bind(host: host, port: listeningPort).get()
-        let channel = try await self.bootstrap.connect(to: SocketAddress.makeAddressResolvingHost(host, port: serverPort)).get()
-
+        let channel = try await self.bootstrap
+            .channelInitializer { channel in
+                channel.pipeline.addHandler(ClientTCPHandler(connectMessage: createTCPmessage()))
+            }
+            .connect(to: SocketAddress.makeAddressResolvingHost(host, port: serverPort)).get()
+        print("Connection successfull to the server")
         try await channel.closeFuture.get()
+    }
+
+    func createTCPmessage() -> [UInt8] {
+        // listening port, client name?, empty buffer (can be used later)
+        let mask: Int = 255;
+
+        // Note that max clients can be 256
+        let id : UInt8 = UInt8(mask) & self.clientId
+        let lPortBitOne: UInt8 = UInt8(self.listeningPort >> 8)
+        let lPortBitTwo: UInt8 = UInt8(mask & self.listeningPort)
+
+        var data = [UInt8](repeating: 0, count: 8)
+        
+        // first bit is for client id; next 2 bits for listening port info keep the other bits zero
+        data[0] = id
+        data[1] = lPortBitOne
+        data[2] = lPortBitTwo
+
+        return data
     }
 }
 
@@ -54,7 +67,7 @@ extension Client {
 
     private func PrintClientDetails() {
         print("-----------------------------------------------")
-        print("Client name: \(self.clientName)")
+        print("Client ID: \(self.clientId)")
         print("Client IP: \(self.host)")
         print("Client Listening port: \(self.listeningPort)")
         print("Server port: \(self.serverPort)")
@@ -71,25 +84,24 @@ struct main: ParsableCommand {
     @Option(help: "Server Port")
     var sPort: Int = 8080
 
-    @Option(help: "No of clients to use")
-    var n: UInt = 1
+    @Option(help: "Client ID")
+    var n: UInt8 = 1
 
+    @Option(help: "Listening port no")
+    var lPort: Int = 6000
 
     public mutating func run() throws {
         // Initialise all the clients
-        var clients: [Client] = []
-        for i in 1...n {
-            var lPort : Int = 6000
-            let clName: String = "Client \(i)"
-            lPort += Int(i)
-            let cl: Client = try Client.init(clientName: clName, host: self.host, serverPort: self.sPort, listeningPort: lPort)
-            Task {
-                try await cl.run()
-            }
-            clients.append(cl)
+        print("Closing the client")
+        let cl: Client = try Client.init(clientId: n, host: self.host, serverPort: self.sPort, listeningPort: lPort)
+        Task {
+            try await cl.run()
         }
 
-        Thread.sleep(forTimeInterval: 10)
-
+        while(true) {
+            //Wait I guess
+        }
     }
+
+
 }
