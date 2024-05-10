@@ -4,7 +4,7 @@ import NIOPosix
 enum HandlerError: Error {
     case NilError
 }
-class ClientTCPHandler: ChannelInboundHandler {
+class TCPRequestHandler: ChannelInboundHandler {
     typealias InboundIn = ByteBuffer
     typealias OutboundOut = ByteBuffer
     let bufferSize: Int = 8
@@ -13,6 +13,8 @@ class ClientTCPHandler: ChannelInboundHandler {
     var nbytes = 0
 
     public func channelActive(context: ChannelHandlerContext) {
+        print("Client local address: \(context.localAddress?.ipAddress as String?)")
+        print("Client remote address: \(context.remoteAddress?.ipAddress as String?)")
 
         var buffer = context.channel.allocator.buffer(capacity: bufferSize)
 

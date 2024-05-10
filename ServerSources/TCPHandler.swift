@@ -1,18 +1,31 @@
 import NIOCore
 import NIOPosix
 
-
-
 final class TCPRequestHandler: ChannelInboundHandler {
     public typealias InboundIn = ByteBuffer
     public typealias OutboundOut = ByteBuffer
 
+    let initUDPport: (_ localAddress: SocketAddress) async throws -> ()
+
+    init(initUDPport: @escaping (_ localAddress: SocketAddress) async throws -> ()) {
+        self.initUDPport = initUDPport
+    }
+
+
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let buffer = self.unwrapInboundIn(data)
+        print("Remote address of the client: \(context.remoteAddress?.ipAddress as String?)")
 
+        print("Data: \(data)")
         print("Size: \(buffer.capacity)")
         do {
-            let _ = try parseMessage(message: buffer)
+            let (lport, _)  = try parseMessage(message: buffer)
+            let address = try SocketAddress.init(ipAddress: context.remoteAddress!.ipAddress!, port: lport!)
+            Task {
+                try await initUDPport(address)
+            }
+
+            print("Channel bound to someting")
         }
         catch {
             print("Parse Message error something something")
@@ -22,7 +35,6 @@ final class TCPRequestHandler: ChannelInboundHandler {
     }
 
     public func channelReadComplete(context: ChannelHandlerContext) {
-        print("Channel read complete")
         context.flush()
     }
 
@@ -31,6 +43,7 @@ final class TCPRequestHandler: ChannelInboundHandler {
 
         context.close(promise: nil)
     }
+
 }
 
 extension TCPRequestHandler {

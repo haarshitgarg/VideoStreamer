@@ -12,7 +12,8 @@ enum ClientError: Error {
 
 struct Client {
     var group: MultiThreadedEventLoopGroup
-    var bootstrap: ClientBootstrap
+    var tcpBootstrap: ClientBootstrap
+    var udpBootstrap: DatagramBootstrap
 
     var host: String
     var listeningPort: Int
@@ -25,21 +26,31 @@ struct Client {
         self.listeningPort = listeningPort
         self.clientId = clientId
 
+        let localAddress: SocketAddress = try SocketAddress.init(ipAddress: "127.0.0.1", port: self.listeningPort)
+
         group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        self.bootstrap = ClientBootstrap(group: group)
+        self.tcpBootstrap = ClientBootstrap(group: group).bind(to: localAddress)
+        self.udpBootstrap = DatagramBootstrap(group: group)
         PrintClientDetails()
     }
 
-    // But if you are trying to just launch one client: from client perspective it should be synchronus
-    // As nothing  else can be done without achieving a TCP connection to the server
-    // Right now I hope this can be handled by my VideoHandlers
     func run() async throws {
-        let channel = try await self.bootstrap
+        let channel = try await self.tcpBootstrap
             .channelInitializer { channel in
-                channel.pipeline.addHandler(ClientTCPHandler(connectMessage: createTCPmessage()))
+                channel.pipeline.addHandler(TCPRequestHandler(connectMessage: createTCPmessage()))
             }
             .connect(to: SocketAddress.makeAddressResolvingHost(host, port: serverPort)).get()
         print("Connection successfull to the server")
+
+        let localAddress: SocketAddress = try SocketAddress.init(ipAddress: "127.0.0.1", port: self.listeningPort)
+
+        let udpchannel = try await self.udpBootstrap
+            .channelInitializer { channel in 
+                channel.pipeline.addHandler(UDPRequestHandler())
+            }
+            .bind(to: localAddress).get()
+
+        try await udpchannel.closeFuture.get()
         try await channel.closeFuture.get()
     }
 
@@ -68,7 +79,7 @@ extension Client {
     private func PrintClientDetails() {
         print("-----------------------------------------------")
         print("Client ID: \(self.clientId)")
-        print("Client IP: \(self.host)")
+        print("Server IP: \(self.host)")
         print("Client Listening port: \(self.listeningPort)")
         print("Server port: \(self.serverPort)")
         print("-----------------------------------------------")
