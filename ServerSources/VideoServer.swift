@@ -1,5 +1,6 @@
 import NIOCore
 import NIOPosix
+import ArgumentParser
 
 enum VideoError: Error {
     case InvalidArguments 
@@ -20,45 +21,34 @@ class Server {
     init() {
         UDPbootstrap = DatagramBootstrap(group: self.group)
             .channelOption(ChannelOptions.datagramVectorReadMessageCount, value: 2)
-            .channelOption(ChannelOptions.recvAllocator, value: FixedSizeRecvByteBufferAllocator(capacity: 128))
+            .channelOption(ChannelOptions.recvAllocator, value: FixedSizeRecvByteBufferAllocator(capacity: 8))
             .channelInitializer { channel in
                 channel.eventLoop.makeCompletedFuture {
-                    try channel.pipeline.syncOperations.addHandler(VideoHandler())
+                    try channel.pipeline.syncOperations.addHandler(TCPRequestHandler())
                 }
             }
         TCPbootstrap = ServerBootstrap(group: self.group)
             .childChannelInitializer { channel in
                 channel.eventLoop.makeCompletedFuture {
-                    try channel.pipeline.syncOperations.addHandler(VideoHandler())
+                    try channel.pipeline.syncOperations.addHandler(TCPRequestHandler())
                 }
             }
     }
 
 
-    public func run(arguments: [String]) throws {
-        try parseArguments(arguments)
+    public func runTCP(host_ip: String, tcp_port: Int, udp_port: Int) throws {
+
+        self.host = host_ip
+        self.TCPport = tcp_port
+        self.UDPport = udp_port
+
+        PrintDetails()
 
         let UDPchannel = try UDPbootstrap.bind(host: host, port: self.UDPport).wait()
         let TCPchannel = try TCPbootstrap.bind(host: host, port: self.TCPport).wait()
 
         try UDPchannel.closeFuture.wait()
         try TCPchannel.closeFuture.wait()
-    }
-
-    private func parseArguments(_ arguments: [String]) throws {
-        if arguments.count <= 2 {
-            print("Setting up default server")
-            self.PrintDetails()
-            return
-        }
-        guard arguments.count == 3 else {
-            throw VideoError.InvalidArguments
-        }
-        self.host = arguments[1]
-        guard let port = Int(arguments[2]) else { throw VideoError.PortInvalid }
-        self.UDPport = port
-
-        self.PrintDetails()
     }
 
     private func runUPD() async throws {
@@ -81,12 +71,22 @@ extension Server {
 }
 
 @main
-struct main {
+struct main: ParsableCommand {
     static let server: Server = Server.init()
+    
+    @Option(help: "Server IP address")
+    var ip: String = "127.0.0.1"
 
-    static func main() throws {
+    @Option(help: "Server TCP port")
+    var t: Int = 8080
+
+    @Option(help: "Server UDP port")
+    var u: Int = 6969
+
+    public mutating func run() throws {
+        let server: Server = Server.init()
         do {
-            try server.run(arguments: CommandLine.arguments)
+            try server.runTCP(host_ip: ip, tcp_port: t, udp_port: u)
         }
         catch VideoError.InvalidArguments {
             print("Invalid arguments to the Server")

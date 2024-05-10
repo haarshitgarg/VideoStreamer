@@ -4,21 +4,20 @@ import NIOPosix
 enum HandlerError: Error {
     case NilError
 }
-class ClientVideoHandler: ChannelInboundHandler {
+class ClientTCPHandler: ChannelInboundHandler {
     typealias InboundIn = ByteBuffer
     typealias OutboundOut = ByteBuffer
-    let bufferSize: Int = 2000
-    var remoteAddress: SocketAddress
+    let bufferSize: Int = 8
+    let connectMessage : [UInt8]
 
     var nbytes = 0
-    var message: [UInt8]
 
     public func channelActive(context: ChannelHandlerContext) {
 
         var buffer = context.channel.allocator.buffer(capacity: bufferSize)
 
-        buffer.writeInteger(message.count)
-        buffer.writeBytes(message)
+        buffer.writeInteger(connectMessage.count)
+        buffer.writeBytes(connectMessage)
 
         context.writeAndFlush(self.wrapOutboundOut(buffer), promise: nil)
 
@@ -28,12 +27,7 @@ class ClientVideoHandler: ChannelInboundHandler {
         print("In the channel read")
         let buffer = self.unwrapInboundIn(data)
 
-        //print(buffer.readableBytes)
-        //print(buffer)
-        //print("Remote address ip: \(envelope.remoteAddress.ipAddress as String?)")
-        //print("Port is: \(envelope.remoteAddress.port as Int?)")
-
-        let bytes: [UInt8]? = buffer.getBytes(at: buffer.readerIndex + 8, length: 10)
+        let bytes: [UInt8]? = buffer.getBytes(at: buffer.readerIndex+8, length: 8)
         print("\(bytes as [UInt8]?)")
         context.close(promise: nil)
     }
@@ -42,12 +36,7 @@ class ClientVideoHandler: ChannelInboundHandler {
         print("Caught error: \(error)")
     }
 
-    init(remoteAddress: SocketAddress) {
-        message = [UInt8]()
-        self.remoteAddress = remoteAddress
-        for _ in 1...bufferSize {
-            let x: UInt8 = 1
-            message.append(x)
-        }
+    init(connectMessage: [UInt8]) {
+        self.connectMessage = connectMessage 
     }
 }

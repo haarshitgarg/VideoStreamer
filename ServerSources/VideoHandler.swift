@@ -1,7 +1,9 @@
 import NIOCore
 import NIOPosix
 
-final class VideoHandler: ChannelInboundHandler {
+
+
+final class TCPRequestHandler: ChannelInboundHandler {
     public typealias InboundIn = ByteBuffer
     public typealias OutboundOut = ByteBuffer
 
@@ -9,10 +11,12 @@ final class VideoHandler: ChannelInboundHandler {
         let buffer = self.unwrapInboundIn(data)
 
         print("Size: \(buffer.capacity)")
-        print("Message: \(buffer.readableBytes)")
-
-        let header: [UInt8]? = buffer.getBytes(at: 0, length: 9)
-        print("Header: \(header as [UInt8]?)")
+        do {
+            let _ = try parseMessage(message: buffer)
+        }
+        catch {
+            print("Parse Message error something something")
+        }
         
         context.write(data, promise:nil)
     }
@@ -26,5 +30,25 @@ final class VideoHandler: ChannelInboundHandler {
         print("Error: \(error)")
 
         context.close(promise: nil)
+    }
+}
+
+extension TCPRequestHandler {
+
+    private func parseMessage(message: ByteBuffer) throws -> (lPort: Int?, client_id: UInt8?) {
+        var lPort: Int?
+        var client_id: UInt8?
+
+        guard let bytes = message.getBytes(at: 8, length: 3) else {
+            throw VideoError.GenericError
+        }
+
+        client_id = bytes[0]
+        lPort = (Int(bytes[1])<<8) | Int(bytes[2])
+
+        print("Client Id: \(client_id as UInt8?), Port: \(lPort as Int?)")
+
+
+        return (lPort, client_id)
     }
 }
