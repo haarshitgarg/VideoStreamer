@@ -4,7 +4,7 @@ import NIOPosix
 enum HandlerError: Error {
     case NilError
 }
-class ClientTCPHandler: ChannelInboundHandler {
+class TCPRequestHandler: ChannelInboundHandler {
     typealias InboundIn = ByteBuffer
     typealias OutboundOut = ByteBuffer
     let bufferSize: Int = 8
@@ -13,7 +13,6 @@ class ClientTCPHandler: ChannelInboundHandler {
     var nbytes = 0
 
     public func channelActive(context: ChannelHandlerContext) {
-
         var buffer = context.channel.allocator.buffer(capacity: bufferSize)
 
         buffer.writeInteger(connectMessage.count)
@@ -24,11 +23,11 @@ class ClientTCPHandler: ChannelInboundHandler {
     }
 
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        print("In the channel read")
         let buffer = self.unwrapInboundIn(data)
+        print("Buffer capacity: \(buffer.capacity)")
 
-        let bytes: [UInt8]? = buffer.getBytes(at: buffer.readerIndex+8, length: 8)
-        print("\(bytes as [UInt8]?)")
+        let bytes: [UInt8]? = buffer.getBytes(at: 0, length: 8)
+        print("Data Bytes: \(bytes as [UInt8]?)")
         context.close(promise: nil)
     }
 
