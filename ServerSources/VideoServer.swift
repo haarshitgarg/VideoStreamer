@@ -6,6 +6,7 @@ enum VideoError: Error {
     case InvalidArguments 
     case PortInvalid
     case GenericError
+    case ParseMessageError
 }
 
 class Server {
@@ -54,9 +55,7 @@ extension Server {
     }
 
     private func initNewUDPport(remoteAddr: SocketAddress) async throws {
-        print("Inititalising new UDP port...")
-
-        print(remoteAddr)
+        print("Inititalising new UDP port at address: \(remoteAddr)")
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         let udp_channel = try await DatagramBootstrap.init(group: group)

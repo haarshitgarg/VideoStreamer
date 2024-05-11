@@ -36,6 +36,7 @@ struct Client {
 
     func run() async throws {
         let channel = try await self.tcpBootstrap
+            
             .channelInitializer { channel in
                 channel.pipeline.addHandler(TCPRequestHandler(connectMessage: createTCPmessage()))
             }
@@ -50,8 +51,8 @@ struct Client {
             }
             .bind(to: localAddress).get()
 
-        try await udpchannel.closeFuture.get()
         try await channel.closeFuture.get()
+        try await udpchannel.closeFuture.get()
     }
 
     func createTCPmessage() -> [UInt8] {

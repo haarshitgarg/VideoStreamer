@@ -13,25 +13,34 @@ final class TCPRequestHandler: ChannelInboundHandler {
 
 
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let buffer = self.unwrapInboundIn(data)
-        print("Remote address of the client: \(context.remoteAddress?.ipAddress as String?)")
+        print("[TCP Server] Remote address of the client: \(context.remoteAddress?.ipAddress as String?)")
 
-        print("Data: \(data)")
-        print("Size: \(buffer.capacity)")
+        let readbuffer = self.unwrapInboundIn(data)
+
+        // 1st bit 1 or 0 means success or failure
+        var writebuffer: ByteBuffer = context.channel.allocator.buffer(capacity: 16)
+        var writeData: [UInt8] = [UInt8](repeating: 0, count: 8)
+
         do {
-            let (lport, _)  = try parseMessage(message: buffer)
+            let (lport, _)  = try parseMessage(message: readbuffer)
             let address = try SocketAddress.init(ipAddress: context.remoteAddress!.ipAddress!, port: lport!)
             Task {
                 try await initUDPport(address)
             }
-
-            print("Channel bound to someting")
+            writeData[0] = 1
+        }
+        catch (VideoError.ParseMessageError) {
+            print("[TCP Server] Error parsing the messsage from the client")
+            writeData[0] = 0
         }
         catch {
-            print("Parse Message error something something")
+            print("[TCP Server] Error creating the socket address")
+            writeData[0] = 0
         }
+
+        writebuffer.writeBytes(writeData)
         
-        context.write(data, promise:nil)
+        context.write(self.wrapOutboundOut(writebuffer), promise:nil)
     }
 
     public func channelReadComplete(context: ChannelHandlerContext) {
@@ -39,8 +48,9 @@ final class TCPRequestHandler: ChannelInboundHandler {
     }
 
     public func errorCaught(context: ChannelHandlerContext, error: any Error) {
-        print("Error: \(error)")
+        print("[TCP Server] Error: \(error)")
 
+        // Closing only on error or else it is ready to read all the time
         context.close(promise: nil)
     }
 
@@ -59,7 +69,7 @@ extension TCPRequestHandler {
         client_id = bytes[0]
         lPort = (Int(bytes[1])<<8) | Int(bytes[2])
 
-        print("Client Id: \(client_id as UInt8?), Port: \(lPort as Int?)")
+        print("[TCP Server] Client Id: \(client_id as UInt8?), Port: \(lPort as Int?)")
 
 
         return (lPort, client_id)
