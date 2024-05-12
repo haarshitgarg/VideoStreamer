@@ -1,6 +1,7 @@
 import NIOCore
 import NIOPosix
 import ArgumentParser
+import Foundation
 
 enum VideoError: Error {
     case InvalidArguments 
@@ -81,13 +82,41 @@ struct main: ParsableCommand {
     @Option(help: "Server UDP port")
     var u: Int = 6969
 
+    @Option(help: "to enable or disable server stand alone testing")
+    var test: Bool = false
+
     public mutating func run() throws {
-        let server: Server = Server.init(host_ip: ip, tcp_port: t, udp_port: u)
-        do {
-            try server.run()
+        if test {
+            guard let data = FileManager.default.contents(atPath: "/Users/harshitgarg/Swift-projects/VideoStreamer/Data/marioGameSS.png")
+            else {
+                throw PNGErros.DataEmpty
+            }
+
+            let vh_test = VideoHandler(imgData: data)
+            do {
+                print("[SERVER Test] Enter the relative file path")
+                //let file_path = "Data/marioGameSS.png" 
+                //let png_test = try PNGImage(path: file_path)
+                //try png_test.test()
+                try vh_test.test()
+            }
+            catch (PNGErros.DataEmpty) {
+                print("PNG file is empty")
+            }
+            catch {
+                print("Something else with\(error)")
+            }
+
+
         }
-        catch VideoError.InvalidArguments {
-            print("Invalid arguments to the Server")
+        else{
+            let server: Server = Server.init(host_ip: ip, tcp_port: t, udp_port: u)
+            do {
+                try server.run()
+            }
+            catch VideoError.InvalidArguments {
+                print("Invalid arguments to the Server")
+            }
         }
     }
 }
