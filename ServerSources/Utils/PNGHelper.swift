@@ -59,7 +59,6 @@ extension ImageWindowController: NSWindowDelegate {
     }
 
     func updateImage(newImage: Data) {
-        print("Updating the image")
         self.imageView_?.imgData = newImage
     }
 }
@@ -84,6 +83,12 @@ struct PNGImage {
             throw PNGErros.DataEmpty
         }
         self.image = temp_image
+        self.windowController = ImageWindowController(imageData: self.image)
+    }
+
+    init(imgData: Data) {
+        self.imgPath = "Not required"
+        self.image = imgData
         self.windowController = ImageWindowController(imageData: self.image)
     }
 
@@ -113,7 +118,7 @@ struct PNGImage {
         return len
     }
 
-    private func UpdateData(newImage: Data) async throws {
+    public func UpdateData(newImage: Data) async throws {
         await self.windowController.updateImage(newImage: newImage)
     }
 }

@@ -87,13 +87,18 @@ struct main: ParsableCommand {
 
     public mutating func run() throws {
         if test {
-            // let vh_test = VideoHandler()
+            guard let data = FileManager.default.contents(atPath: "/Users/harshitgarg/Swift-projects/VideoStreamer/Data/marioGameSS.png")
+            else {
+                throw PNGErros.DataEmpty
+            }
+
+            let vh_test = VideoHandler(imgData: data)
             do {
                 print("[SERVER Test] Enter the relative file path")
-                let file_path = "Data/marioGameSS.png" 
-                let png_test = try PNGImage(path: file_path)
-                try png_test.test()
-                //try vh_test.test(fpath: file_path)
+                //let file_path = "Data/marioGameSS.png" 
+                //let png_test = try PNGImage(path: file_path)
+                //try png_test.test()
+                try vh_test.test()
             }
             catch (PNGErros.DataEmpty) {
                 print("PNG file is empty")
