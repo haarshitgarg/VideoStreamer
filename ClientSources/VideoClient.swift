@@ -20,6 +20,8 @@ struct Client {
     var serverPort: Int
     let clientId: UInt8
 
+    var dataBuffer: [[UInt8]] = [[UInt8]](repeating: [UInt8](), count: 3000)
+
     init(clientId: UInt8, host: String, serverPort: Int, listeningPort: Int) throws {
         self.host = host
         self.serverPort = serverPort
@@ -51,6 +53,8 @@ struct Client {
             }
             .bind(to: localAddress).get()
 
+        print("[CLIENT] UDP channel active")
+
         try await channel.closeFuture.get()
         try await udpchannel.closeFuture.get()
     }
@@ -75,7 +79,16 @@ struct Client {
     }
 }
 
+// Data management extension
 extension Client {
+
+    private mutating func addToBuffer(data: [UInt8], i: Int) {
+        self.dataBuffer[i] = data
+        if i%100 == 0 {
+            print("Got packet no: \(i)")
+        }
+    }
+
 
     private func PrintClientDetails() {
         print("-----------------------------------------------")
