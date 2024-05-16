@@ -6,11 +6,21 @@ class UDPRequestHandler: ChannelInboundHandler {
     typealias InboundIn = AddressedEnvelope<ByteBuffer>
     typealias OutboundIn = AddressedEnvelope<ByteBuffer>
 
-    public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        print("UDP Channel Read called")
+    let dataHandler: DataHandler
 
+    public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        print("[UDP CLIENT] UDP Channel Read called")
         var buffer = self.unwrapInboundIn(data)
-        print("data: \(buffer.data.readBytes(length: 32) as [UInt8]?)")
+        let myData = buffer.data.readBytes(length: buffer.data.readableBytes)
+        Task {
+            await self.dataHandler.addToBuffer(bytes:myData)
+        }
+
+        print("[UDP CLIENT] data: \(myData as [UInt8]?)")
+    }
+
+    init(dataHandler: DataHandler) {
+        self.dataHandler = dataHandler
     }
 
 }
