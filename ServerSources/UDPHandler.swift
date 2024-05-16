@@ -5,6 +5,8 @@ class UDPRequestHandler: ChannelInboundHandler {
     typealias InboundIn = AddressedEnvelope<ByteBuffer>
     typealias OutboundOut = AddressedEnvelope<ByteBuffer>
 
+    var sampleData: [UInt8] = [UInt8](repeating: 0, count: 32)
+
     let remoteAddress: SocketAddress
     
     init(remoteAddress: SocketAddress) {
@@ -18,9 +20,13 @@ class UDPRequestHandler: ChannelInboundHandler {
         // Pass data to the client
         // This is where we will be bombarding UPD packets to the client
 
-        let data = context.channel.allocator.buffer(string: "Hello from UDP server")
-        let envelope = AddressedEnvelope<ByteBuffer>(remoteAddress: remoteAddress, data: data)
+        for i in 1...250 {
+            var x = self.sampleData
+            x[0] = UInt8(i)
+            let data = context.channel.allocator.buffer(bytes: x)
+            let envelope = AddressedEnvelope<ByteBuffer>(remoteAddress: remoteAddress, data: data)
 
-        context.writeAndFlush(self.wrapOutboundOut(envelope), promise: nil)
+            context.writeAndFlush(self.wrapOutboundOut(envelope), promise: nil)
+        }
     }
 }

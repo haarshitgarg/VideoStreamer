@@ -12,9 +12,11 @@ enum VideoError: Error {
 
 class Server {
     let ServerName: String = "VideoServer"
+
     let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
     let TCPbootstrap: ServerBootstrap
 
+    //This is for future multi client support
     let UDPBootstrapList: [DatagramBootstrap]? = nil
     
     var host: String
@@ -27,7 +29,6 @@ class Server {
         self.UDPport = udp_port
 
         TCPbootstrap = ServerBootstrap(group: self.group)
-            
     }
 
 

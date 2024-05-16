@@ -10,10 +10,41 @@ enum ClientError: Error {
     case GenericError
 }
 
+actor DataHandler {
+    var noOfPackets: Int
+    var packetBuffer: [[UInt8]] = [[UInt8]](repeating: [UInt8](), count: 400)
+
+    public func incrementPacketNo() {
+        self.noOfPackets += 1;
+    }
+
+    public func printPacketNo() {
+        print("[CLIENT] No of packets: \(self.noOfPackets)")
+    }
+
+    public func addToBuffer(bytes: [UInt8]?) {
+        guard bytes != nil
+        else {
+            print("[DATA HANDLER] found nil data bytes")
+            return
+        }
+        let i: Int = Int(bytes![0])
+        packetBuffer[i] = bytes!
+        incrementPacketNo()
+    }
+
+    init() {
+        self.noOfPackets = 0;
+    }
+}
+
+
 struct Client {
     var group: MultiThreadedEventLoopGroup
     var tcpBootstrap: ClientBootstrap
     var udpBootstrap: DatagramBootstrap
+    var ClientDataHandler: DataHandler = DataHandler.init()
+
 
     var host: String
     var listeningPort: Int
@@ -47,9 +78,11 @@ struct Client {
 
         let udpchannel = try await self.udpBootstrap
             .channelInitializer { channel in 
-                channel.pipeline.addHandler(UDPRequestHandler())
+                channel.pipeline.addHandler(UDPRequestHandler(dataHandler: ClientDataHandler))
             }
             .bind(to: localAddress).get()
+
+        print("[CLIENT] UDP channel active")
 
         try await channel.closeFuture.get()
         try await udpchannel.closeFuture.get()
@@ -75,8 +108,8 @@ struct Client {
     }
 }
 
+// Data management extension
 extension Client {
-
     private func PrintClientDetails() {
         print("-----------------------------------------------")
         print("Client ID: \(self.clientId)")
