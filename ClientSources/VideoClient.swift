@@ -8,42 +8,59 @@ enum ClientError: Error {
     case InvalidArguments
     case PortInvalid
     case GenericError
+    case BufferFull
 }
 
+
 actor DataHandler {
-    var noOfPackets: Int
-    var packetBuffer: [[UInt8]] = [[UInt8]](repeating: [UInt8](), count: 400)
+    var packetBuffer: [[UInt8]] = [[UInt8]](repeating: [UInt8](), count: 3000)
+    var readerIndex: Int = 0
+    var emptyBuffer: Bool = true
+    var noOfPackets: Int = 0
 
-    public func incrementPacketNo() {
-        self.noOfPackets += 1;
+    public func printNoOfPackets() {
+        print("[HANDLER] No of packets: \(self.noOfPackets)")
     }
 
-    public func printPacketNo() {
-        print("[CLIENT] No of packets: \(self.noOfPackets)")
-    }
-
-    public func addToBuffer(bytes: [UInt8]?) {
+    public func addToBuffer(bytes: [UInt8]?) throws {
+        self.emptyBuffer = false
         guard bytes != nil
         else {
             print("[DATA HANDLER] found nil data bytes")
             return
         }
-        let i: Int = Int(bytes![0])
-        packetBuffer[i] = bytes!
-        incrementPacketNo()
+        let index: Int = Int(bytes![0]) << 8 | Int(bytes![1]) 
+        packetBuffer[index] = bytes!
+        noOfPackets += 1
     }
 
-    init() {
-        self.noOfPackets = 0;
+    public func getFromBuffer() -> [UInt8] {
+        let d = self.packetBuffer[readerIndex]
+        if(d == [UInt8]()) {
+            return d
+        }
+        self.readerIndex += 1
+        self.readerIndex = self.readerIndex%3000
+        noOfPackets -= 1
+
+        return d
     }
+
+    public func isEmpty() -> Bool {
+        if(noOfPackets == 0) {
+            return true
+        }
+        return false
+    }
+
 }
-
 
 struct Client {
     var group: MultiThreadedEventLoopGroup
     var tcpBootstrap: ClientBootstrap
     var udpBootstrap: DatagramBootstrap
     var ClientDataHandler: DataHandler = DataHandler.init()
+    let imageViewer = PNGImage(imgData: Data())
 
 
     var host: String
@@ -67,11 +84,11 @@ struct Client {
 
     func run() async throws {
         let channel = try await self.tcpBootstrap
-            
             .channelInitializer { channel in
                 channel.pipeline.addHandler(TCPRequestHandler(connectMessage: createTCPmessage()))
             }
             .connect(to: SocketAddress.makeAddressResolvingHost(host, port: serverPort)).get()
+
         print("Connection successfull to the server")
 
         let localAddress: SocketAddress = try SocketAddress.init(ipAddress: "127.0.0.1", port: self.listeningPort)
@@ -86,6 +103,23 @@ struct Client {
 
         try await channel.closeFuture.get()
         try await udpchannel.closeFuture.get()
+    }
+
+    public func UpdateImage() throws{
+        Task {
+            var imgData: Data = Data()
+            while(true) {
+                if(await self.ClientDataHandler.isEmpty() == false) {
+                    let newData = await self.ClientDataHandler.getFromBuffer()
+                    imgData.append(contentsOf: newData[2...(newData.endIndex-1)]) 
+                    try await imageViewer.UpdateData(newImage: imgData)
+                }
+            }
+        }
+
+        imageViewer.displayImage()
+        
+
     }
 
     func createTCPmessage() -> [UInt8] {
@@ -142,11 +176,11 @@ struct main: ParsableCommand {
         Task {
             try await cl.run()
         }
+        try cl.UpdateImage()
 
         while(true) {
-            //Wait I guess
+
         }
+
     }
-
-
 }
